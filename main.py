@@ -28,7 +28,7 @@ class YABuffer(ReplayBuffer):
 
 
 def main():
-    writer = SummaryWriter('logs/diff_scales')
+    writer = SummaryWriter('logs/with_visib_diff_ampl')
 
     args = get_args()
     print(vars(args))
@@ -37,12 +37,10 @@ def main():
     observation_shape = env.observation_space.shape
     print('obs shape', observation_shape)
     n_actions = env.action_space.n
-    if args.duel:
-        net = DuelDQNModel(observation_shape, n_actions).to(args.device)
-    else:
-        net = DQNModel(observation_shape, n_actions).to(args.device)
+    hidden_size = 10 * (n_actions + 1)
+    net = DuelDQNModel(observation_shape, n_actions, hidden_size).to(args.device)
 
-    #net.load_state_dict(torch.load('trained_model_smaller'))
+    net.load_state_dict(torch.load('model'))
 
     target_net = TargetNet(net)
     exp_replay = ReplayBuffer(args.buffer_size)
@@ -56,15 +54,16 @@ def main():
 
     optimizer = torch.optim.Adam(net.parameters(), lr=args.lr)
 
-    state = env.reset()
-    state = fill(exp_replay, agent, env, state, n_steps=args.init_buff_size)
+    state, hidden = env.reset(), np.zeros(shape=hidden_size, dtype=np.float32)
+    state, hidden = fill(exp_replay, agent, env, state, hidden, n_steps=args.init_buff_size)
 
-    for step in trange(int(args.total_steps/args.rollout_steps + 1)):
+    step_last = 1240000
+    for step in trange(step_last, step_last + int(args.total_steps/args.rollout_steps + 1)):
 
         agent.epsilon = linear_decay(step, args)
 
         # play
-        state = fill(exp_replay, agent, env, state, n_steps=args.rollout_steps)
+        state, hidden = fill(exp_replay, agent, env, state, hidden, n_steps=args.rollout_steps)
 
         # train
         optimizer.zero_grad()
@@ -105,7 +104,7 @@ def main():
 
         if step % args.eval_freq == 0:
             agent.epsilon = args.eval_eps
-            reword, visib, dist, angle = evaluate(make_env(seed=step), agent, n_games=10, greedy=False)
+            reword, visib, dist, angle = evaluate(make_env(seed=step), agent, hidden_size, n_games=10, greedy=False)
 
             writer.add_scalar('reword', reword, step)
             writer.add_scalar('visib', visib, step)
@@ -119,6 +118,7 @@ def main():
             )
 
             torch.save(net.state_dict(), 'model')
+
 
 if __name__ == '__main__':
     main()

@@ -3,6 +3,7 @@
 
 import numpy as np
 from tqdm import trange
+from .common_utils import action2vec
 
 
 class ReplayBuffer(object):
@@ -21,8 +22,8 @@ class ReplayBuffer(object):
     def __len__(self):
         return len(self._storage)
 
-    def add(self, obs_t, action, reward, obs_tp1, done):
-        data = (obs_t, action, reward, obs_tp1, done)
+    def add(self, obs_t, hidden, action, reward, obs_tp1, hidden_p1, done):
+        data = (obs_t, hidden, action, reward, obs_tp1, hidden_p1, done)
 
         if self._next_idx >= len(self._storage):
             self._storage.append(data)
@@ -31,16 +32,25 @@ class ReplayBuffer(object):
         self._next_idx = (self._next_idx + 1) % self._maxsize
         
     def _encode_sample(self, idxes):
-        obses_t, actions, rewards, obses_tp1, dones = [], [], [], [], []
+        obses_t, hiddens, actions, rewards, obses_tp1, hiddens_p1, dones = [], [], [], [], [], [], []
         for i in idxes:
             data = self._storage[i]
-            obs_t, action, reward, obs_tp1, done = data
+            obs_t, hidden, action, reward, obs_tp1, hidden_p1, done = data
             obses_t.append(np.array(obs_t, copy=False))
+            hiddens.append(np.array(hidden, copy=False))
             actions.append(np.array(action, copy=False))
             rewards.append(reward)
             obses_tp1.append(np.array(obs_tp1, copy=False))
+            hiddens_p1.append(np.array(hidden_p1, copy=False))
             dones.append(done)
-        return np.array(obses_t), np.array(actions), np.array(rewards), np.array(obses_tp1), np.array(dones)
+
+        return np.array(obses_t), \
+               np.array(hiddens), \
+               np.array(actions), \
+               np.array(rewards), \
+               np.array(obses_tp1), \
+               np.array(hiddens_p1),\
+               np.array(dones)
 
     def sample(self, batch_size):
         """Sample a batch of experiences.
@@ -70,21 +80,27 @@ class ReplayBuffer(object):
         return self._encode_sample(idxes)
 
 
-def fill(buffer, agent, env, s_begin, n_steps=1):
-    s = s_begin
+def fill(buffer, agent, env, s_begin, h_begin, n_steps=1):
+    s, h = s_begin, h_begin
 
     iter = range
     if n_steps > 1000:
         iter = trange
 
     for _ in iter(n_steps):
-        action = agent.sample_actions([s])[0]
-        next_s, r, done, _ = env.step(action)
+        assert h.dtype == np.float32
+        action = agent.sample_actions([s], [h])[0]
+        next_s, r, done, info = env.step(action)
 
-        buffer.add(s, action, r, next_s, done)
+        action_vec = action2vec(action, agent.get_number_of_actions())
+        next_h = np.append(h[1 + len(action_vec):], [info['visib'], *action_vec]).astype(h.dtype)
+
+        buffer.add(s, h, action, r, next_s, next_h, done)
         if done:
             s = env.reset()
+            h = np.zeros_like(h, dtype=h.dtype)
         else:
             s = next_s
+            h = next_h
 
-    return s
+    return s, h

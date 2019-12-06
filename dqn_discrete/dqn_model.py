@@ -42,7 +42,7 @@ class DQNModel(nn.Module):
 class DuelDQNModel(nn.Module):
     """A Dueling DQN net"""
     
-    def __init__(self, input_shape, n_actions, hidden_size=0):
+    def __init__(self, input_shape, n_actions, hidden_size):
         super(DuelDQNModel, self).__init__()
 
         self.n_actions = n_actions
@@ -58,20 +58,24 @@ class DuelDQNModel(nn.Module):
 
         conv_out_size = self._get_conv_out(input_shape)
         
-        self.fc_adv = nn.Sequential(
+        self.fc_adv_begin = nn.Sequential(
             nn.Linear(conv_out_size, 512),
             nn.ReLU(),
-            nn.Linear(512, 512 + hidden_size),
+        )
+        self.fc_adv_end = nn.Sequential(
+            nn.Linear(512 + hidden_size, 512),
             nn.ReLU(),
-            nn.Linear(512 + hidden_size, self.n_actions)
+            nn.Linear(512, self.n_actions)
         )
         # h_adv = self.fc_adv.register_hook(lambda grad: grad/torch.sqrt(2))
-        self.fc_val = nn.Sequential(
+        self.fc_val_begin = nn.Sequential(
             nn.Linear(conv_out_size, 512),
             nn.ReLU(),
-            nn.Linear(512, 512 + hidden_size),
+        )
+        self.fc_val_end = nn.Sequential(
+            nn.Linear(512 + hidden_size, 512),
             nn.ReLU(),
-            nn.Linear(512 + hidden_size, 1)
+            nn.Linear(512, 1)
         )
         # h_val = self.fc_val.register_hook(lambda grad: grad/torch.sqrt(2))
 
@@ -79,11 +83,18 @@ class DuelDQNModel(nn.Module):
         o = self.conv(torch.zeros(1, *shape))
         return int(np.prod(o.shape))
 
-    def forward(self, x):
+    def forward(self, x, hidden):
         x = x.float() / 255.0
         conv_out = self.conv(x).view(x.shape[0], -1)
-        val = self.fc_val(conv_out)
-        adv = self.fc_adv(conv_out)
+
+        val = self.fc_val_begin(conv_out)
+        val = torch.cat([val, hidden], dim=1)
+        val = self.fc_val_end(val)
+
+        adv = self.fc_adv_begin(conv_out)
+        adv = torch.cat([adv, hidden], dim=1)
+        adv = self.fc_adv_end(adv)
+
         return val + adv - adv.mean()    
 
 
@@ -110,13 +121,18 @@ class DQNAgent:
         self.epsilon = epsilon
         self.device = device
 
-    def get_q_values(self, states):
+    def get_number_of_actions(self):
+        return self.dqn_model.n_actions
+
+    def get_q_values(self, states, hiddens):
         """
         Calculates q-values given list of obseravations
         """
         
         states = self._state_processor(states)
-        q_values = self.dqn_model.forward(states)
+        hiddens = self._state_processor(hiddens)
+
+        q_values = self.dqn_model.forward(states, hiddens)
 
         return q_values.detach().cpu().numpy()
 
@@ -128,13 +144,13 @@ class DQNAgent:
         # return torch.tensor(states).to(self.device)
         return torch.from_numpy(np.array(states)).to(self.device)          
 
-    def sample_actions(self, states, greedy=False):
+    def sample_actions(self, states, hidden, greedy=False):
         """
         Pick actions given array of qvalues
         Uses epsilon-greedy exploration strategy
         """
         
-        qvalues = self.get_q_values(states)
+        qvalues = self.get_q_values(states, hidden)
         best_actions = qvalues.argmax(axis=-1)
         if greedy:
             return best_actions
