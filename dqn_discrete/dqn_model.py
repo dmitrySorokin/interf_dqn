@@ -56,46 +56,101 @@ class DuelDQNModel(nn.Module):
             nn.ReLU()
         )
 
-        conv_out_size = self._get_conv_out(input_shape)
-        
-        self.fc_adv_begin = nn.Sequential(
-            nn.Linear(conv_out_size, 512),
+        conv_out_size = self._get_conv_out(input_shape, self.conv)
+
+        # 8: n_actions
+        # 9: visib + 8 handles
+        hidden_step_len = n_actions + 1
+        self.hidden_conv = nn.Sequential(
+            nn.Conv1d(1, n_actions, kernel_size=hidden_step_len, stride=hidden_step_len),
+            nn.ReLU(),
+            nn.Conv1d(n_actions, 8, kernel_size=4, stride=2),
+            nn.ReLU(),
+            nn.Conv1d(8, 8, kernel_size=3, stride=1),
             nn.ReLU(),
         )
-        self.fc_adv_end = nn.Sequential(
-            nn.Linear(512 + hidden_size, 512),
+
+        hidden_conv_out_size = self._get_conv_out((1, hidden_size), self.hidden_conv)
+        
+        self.fc_adv = nn.Sequential(
+            nn.Linear(conv_out_size + hidden_conv_out_size, 512),
+            nn.ReLU(),
+            nn.Linear(512, 512),
             nn.ReLU(),
             nn.Linear(512, self.n_actions)
         )
         # h_adv = self.fc_adv.register_hook(lambda grad: grad/torch.sqrt(2))
-        self.fc_val_begin = nn.Sequential(
+        self.fc_val = nn.Sequential(
             nn.Linear(conv_out_size, 512),
             nn.ReLU(),
-        )
-        self.fc_val_end = nn.Sequential(
-            nn.Linear(512 + hidden_size, 512),
+            nn.Linear(512, 512),
             nn.ReLU(),
             nn.Linear(512, 1)
         )
         # h_val = self.fc_val.register_hook(lambda grad: grad/torch.sqrt(2))
 
-    def _get_conv_out(self, shape):
-        o = self.conv(torch.zeros(1, *shape))
+    def _get_conv_out(self, shape, conv):
+        o = conv(torch.zeros(1, *shape))
         return int(np.prod(o.shape))
 
     def forward(self, x, hidden):
         x = x.float() / 255.0
         conv_out = self.conv(x).view(x.shape[0], -1)
 
-        val = self.fc_val_begin(conv_out)
-        val = torch.cat([val, hidden], dim=1)
-        val = self.fc_val_end(val)
+        hidden_conv_out = self.hidden_conv(hidden.unsqueeze(1)).view(hidden.shape[0], -1)
+        conv_lin = torch.cat([conv_out, hidden_conv_out], dim=1)
 
-        adv = self.fc_adv_begin(conv_out)
-        adv = torch.cat([adv, hidden], dim=1)
-        adv = self.fc_adv_end(adv)
+        val = self.fc_val(conv_out)
+        adv = self.fc_adv(conv_lin)
 
-        return val + adv - adv.mean()    
+        return val + adv - adv.mean()
+
+
+class DuelDQNModelWalk(nn.Module):
+    """A Dueling DQN net"""
+
+    def __init__(self, input_shape, n_actions):
+        super(DuelDQNModelWalk, self).__init__()
+
+        self.n_actions = n_actions
+
+        self.feature = nn.Sequential(
+            nn.Linear(input_shape, 128),
+            nn.ReLU(),
+            nn.Linear(128, 128),
+            nn.ReLU(),
+            nn.Linear(128, 512)
+        )
+
+        self.fc_adv = nn.Sequential(
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, self.n_actions)
+        )
+        # h_adv = self.fc_adv.register_hook(lambda grad: grad/torch.sqrt(2))
+        self.fc_val = nn.Sequential(
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, 512),
+            nn.ReLU(),
+            nn.Linear(512, 1)
+        )
+        # h_val = self.fc_val.register_hook(lambda grad: grad/torch.sqrt(2))
+
+    def _get_conv_out(self, shape, conv):
+        o = conv(torch.zeros(1, *shape))
+        return int(np.prod(o.shape))
+
+    def forward(self, x, hidden):
+        x = x.float() / 255.0
+        linear_out = self.linear(x)
+
+        val = self.fc_val(linear_out)
+        adv = self.fc_adv(linear_out)
+
+        return val + adv - adv.mean()
 
 
 class TargetNet:

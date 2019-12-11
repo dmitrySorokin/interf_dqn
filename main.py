@@ -28,7 +28,7 @@ class YABuffer(ReplayBuffer):
 
 
 def main():
-    writer = SummaryWriter('logs/with_visib_diff_ampl')
+    writer = SummaryWriter('logs/concat_visib_and_full_act')
 
     args = get_args()
     print(vars(args))
@@ -37,7 +37,7 @@ def main():
     observation_shape = env.observation_space.shape
     print('obs shape', observation_shape)
     n_actions = env.action_space.n
-    hidden_size = 10 * (n_actions + 1)
+    hidden_size = 100 * (n_actions + 1)
     net = DuelDQNModel(observation_shape, n_actions, hidden_size).to(args.device)
 
     net.load_state_dict(torch.load('model'))
@@ -57,8 +57,8 @@ def main():
     state, hidden = env.reset(), np.zeros(shape=hidden_size, dtype=np.float32)
     state, hidden = fill(exp_replay, agent, env, state, hidden, n_steps=args.init_buff_size)
 
-    step_last = 1240000
-    for step in trange(step_last, step_last + int(args.total_steps/args.rollout_steps + 1)):
+    step_begin = 0
+    for step in trange(step_begin, int(args.total_steps/args.rollout_steps + 1)):
 
         agent.epsilon = linear_decay(step, args)
 

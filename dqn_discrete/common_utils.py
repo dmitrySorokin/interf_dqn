@@ -2,10 +2,16 @@ import torch
 import numpy as np
 
 
-def action2vec(action, n_actions):
-    res = np.zeros(n_actions, dtype=np.float32)
-    res[action] = 1
+def action2vec(action_id, n_actions):
+    res = np.zeros(n_actions - 1)
+    if action_id < n_actions - 1:
+        res[action_id] = 1
     return res
+
+
+def rescale_imin(imin):
+    imin = imin * np.random.uniform(0.98, 1.02) + 1e-3
+    return np.log(imin) / 10
 
 
 def shift(state):
@@ -73,8 +79,9 @@ def evaluate(env, agent, hidden_size, n_games=1, greedy=False, t_max=10000):
             s, r, done, info = env.step(action)
             reward += r
 
+            imin = rescale_imin(info['imin'])
             action_vec = action2vec(action, agent.get_number_of_actions())
-            h = np.append(h[1 + len(action_vec):], [info['visib'], *action_vec]).astype(h.dtype)
+            h = np.append(h[1 + len(action_vec):], [imin, *action_vec]).astype(h.dtype)
 
             if done:
                 h = np.zeros_like(h, dtype=h.dtype)
