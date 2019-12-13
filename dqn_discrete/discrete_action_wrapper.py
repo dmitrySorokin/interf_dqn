@@ -4,7 +4,7 @@ import gym
 import gym_interf
 import numpy as np
 from collections import deque
-from .common_utils import rescale_imin
+from .common_utils import rescale_visib
 
 
 class ChannelShifter(gym.Wrapper):
@@ -100,7 +100,7 @@ class FrameStack(gym.Wrapper):
 
 class RewardChanger(gym.RewardWrapper):
     def reward(self, reward):
-        return rescale_imin(self.env.info['imin']) - 1
+        return rescale_visib(self.env.info['visib']) - 1
 
 
 def make_env(seed=None):

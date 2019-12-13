@@ -10,8 +10,12 @@ def action2vec(action_id, n_actions):
 
 
 def rescale_imin(imin):
-    imin = imin * np.random.uniform(0.98, 1.02) + 1e-3
-    return np.log(imin) / 10
+    imin = imin / 255.0 * 2.0 * np.random.uniform(0.98, 1.02) + 1e-3
+    return -np.log(imin) / 10
+
+
+def rescale_visib(visib):
+    return -np.log(1.0 - visib + 1e-3) / 10.0
 
 
 def shift(state):
@@ -79,9 +83,10 @@ def evaluate(env, agent, hidden_size, n_games=1, greedy=False, t_max=10000):
             s, r, done, info = env.step(action)
             reward += r
 
-            imin = rescale_imin(info['imin'])
+            #imin = rescale_imin(info['imin'])
+            visib = rescale_visib(info['visib'])
             action_vec = action2vec(action, agent.get_number_of_actions())
-            h = np.append(h[1 + len(action_vec):], [imin, *action_vec]).astype(h.dtype)
+            h = np.append(h[1 + len(action_vec):], [visib, *action_vec]).astype(h.dtype)
 
             if done:
                 h = np.zeros_like(h, dtype=h.dtype)

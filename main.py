@@ -28,7 +28,7 @@ class YABuffer(ReplayBuffer):
 
 
 def main():
-    writer = SummaryWriter('logs/log_min_intens_loss_plus_actions')
+    writer = SummaryWriter('logs/log_visib_loss_plus_actions')
 
     args = get_args()
     print(vars(args))
@@ -106,17 +106,17 @@ def main():
 
         if step % args.eval_freq == 0:
             agent.epsilon = args.eval_eps
-            reword, visib, dist, angle = evaluate(make_env(seed=step), agent, hidden_size, n_games=10, greedy=False)
+            reward, visib, dist, angle = evaluate(make_env(seed=step), agent, hidden_size, n_games=10, greedy=False)
 
-            writer.add_scalar('reword', reword, step)
+            writer.add_scalar('reword', reward, step)
             writer.add_scalar('visib', visib, step)
             writer.add_scalar('dist', dist, step)
             writer.add_scalar('angle', angle, step)
 
             agent.epsilon = linear_decay(step, args)
             
-            print("Updates: {}, num timesteps: {}, buff size: {}, epsilon: {:.4f}, last visib: {:.2f}".format(
-                step, int(step * args.rollout_steps), len(exp_replay), agent.epsilon, visib)
+            print("Updates: {}, num timesteps: {}, buff size: {}, epsilon: {:.4f}, visib: {:.2f}, reward {:.2f}".format(
+                step, int(step * args.rollout_steps), len(exp_replay), agent.epsilon, visib, reward)
             )
 
             torch.save(net.state_dict(), 'model')

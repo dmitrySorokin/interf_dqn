@@ -3,7 +3,7 @@
 
 import numpy as np
 from tqdm import trange
-from .common_utils import action2vec, rescale_imin
+from .common_utils import action2vec, rescale_imin, rescale_visib
 
 
 class ReplayBuffer(object):
@@ -92,9 +92,10 @@ def fill(buffer, agent, env, s_begin, h_begin, n_steps=1):
         action = agent.sample_actions([s], [h])[0]
         next_s, r, done, info = env.step(action)
 
-        imin = rescale_imin(info['imin'])
+        #imin = rescale_imin(info['imin'])
+        visib = rescale_visib(info['visib'])
         action_vec = action2vec(action, agent.get_number_of_actions())
-        next_h = np.append(h[1 + len(action_vec):], [imin, *action_vec]).astype(h.dtype)
+        next_h = np.append(h[1 + len(action_vec):], [visib, *action_vec]).astype(h.dtype)
 
         buffer.add(s, h, action, r, next_s, next_h, done)
         if done:
