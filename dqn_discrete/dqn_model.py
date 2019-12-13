@@ -42,7 +42,7 @@ class DQNModel(nn.Module):
 class DuelDQNModel(nn.Module):
     """A Dueling DQN net"""
     
-    def __init__(self, input_shape, n_actions, hidden_size):
+    def __init__(self, input_shape, n_actions, history_size):
         super(DuelDQNModel, self).__init__()
 
         self.n_actions = n_actions
@@ -57,23 +57,22 @@ class DuelDQNModel(nn.Module):
         )
 
         conv_out_size = self._get_conv_out(input_shape, self.conv)
-
-        # 8: n_actions
-        # 9: visib + 8 handles
-        hidden_step_len = n_actions + 1
-        self.hidden_conv = nn.Sequential(
-            nn.Conv1d(1, n_actions, kernel_size=hidden_step_len, stride=hidden_step_len),
+        history_out_size = 256
+        #
+        self.history = nn.Sequential(
+            nn.Linear(history_size, 512),
             nn.ReLU(),
-            nn.Conv1d(n_actions, 8, kernel_size=4, stride=2),
+            nn.Linear(512, 512),
             nn.ReLU(),
-            nn.Conv1d(8, 8, kernel_size=3, stride=1),
-            nn.ReLU(),
+            nn.Linear(512, history_out_size),
+            nn.ReLU()
         )
 
-        hidden_conv_out_size = self._get_conv_out((1, hidden_size), self.hidden_conv)
-        
+        #self.feature = nn.LSTM(recurrent_step_size, recurrent_step_size)
+        #self.lstm_hidden_shape = recurrent_step_size
+
         self.fc_adv = nn.Sequential(
-            nn.Linear(conv_out_size + hidden_conv_out_size, 512),
+            nn.Linear(conv_out_size + history_out_size, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
@@ -81,7 +80,7 @@ class DuelDQNModel(nn.Module):
         )
         # h_adv = self.fc_adv.register_hook(lambda grad: grad/torch.sqrt(2))
         self.fc_val = nn.Sequential(
-            nn.Linear(conv_out_size, 512),
+            nn.Linear(conv_out_size + history_out_size, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
@@ -93,15 +92,21 @@ class DuelDQNModel(nn.Module):
         o = conv(torch.zeros(1, *shape))
         return int(np.prod(o.shape))
 
-    def forward(self, x, hidden):
+    def forward(self, x, histo):
         x = x.float() / 255.0
         conv_out = self.conv(x).view(x.shape[0], -1)
+        histo_out = self.history(histo)
 
-        hidden_conv_out = self.hidden_conv(hidden.unsqueeze(1)).view(hidden.shape[0], -1)
-        conv_lin = torch.cat([conv_out, hidden_conv_out], dim=1)
 
-        val = self.fc_val(conv_out)
-        adv = self.fc_adv(conv_lin)
+        #step_histo = step_histo.view([step_histo.shape[0], -1, 100]).permute([2, 0, 1])
+        #self.feature.flatten_parameters()
+        #feature_out, hidden = self.feature(step_histo)
+        #feature_out = feature_out[-1]
+
+        out = torch.cat([conv_out, histo_out], dim=1)
+
+        val = self.fc_val(out)
+        adv = self.fc_adv(out)
 
         return val + adv - adv.mean()
 
@@ -113,17 +118,11 @@ class DuelDQNModelWalk(nn.Module):
         super(DuelDQNModelWalk, self).__init__()
 
         self.n_actions = n_actions
-
-        self.feature = nn.Sequential(
-            nn.Linear(input_shape, 128),
-            nn.ReLU(),
-            nn.Linear(128, 128),
-            nn.ReLU(),
-            nn.Linear(128, 512)
-        )
+        self.feature = nn.LSTM(input_shape[1], input_shape[1])
+        self.lstm_hidden_shape = input_shape[1]
 
         self.fc_adv = nn.Sequential(
-            nn.Linear(512, 512),
+            nn.Linear(self.lstm_hidden_shape, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
@@ -131,7 +130,7 @@ class DuelDQNModelWalk(nn.Module):
         )
         # h_adv = self.fc_adv.register_hook(lambda grad: grad/torch.sqrt(2))
         self.fc_val = nn.Sequential(
-            nn.Linear(512, 512),
+            nn.Linear(self.lstm_hidden_shape, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
@@ -143,12 +142,15 @@ class DuelDQNModelWalk(nn.Module):
         o = conv(torch.zeros(1, *shape))
         return int(np.prod(o.shape))
 
-    def forward(self, x, hidden):
-        x = x.float() / 255.0
-        linear_out = self.linear(x)
+    def forward(self, _, step_histo):
+        step_histo = step_histo.view([step_histo.shape[0], -1, 100]).permute([2, 0, 1])
+        self.feature.flatten_parameters()
+        feature_out, hidden = self.feature(step_histo)
 
-        val = self.fc_val(linear_out)
-        adv = self.fc_adv(linear_out)
+        feature_out = feature_out[-1]
+
+        val = self.fc_val(feature_out)
+        adv = self.fc_adv(feature_out)
 
         return val + adv - adv.mean()
 

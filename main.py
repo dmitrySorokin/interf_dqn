@@ -1,4 +1,4 @@
-from dqn_discrete.dqn_model import DQNModel, DuelDQNModel, DQNAgent, TargetNet
+from dqn_discrete.dqn_model import DQNModel, DuelDQNModel, DQNAgent, TargetNet, DuelDQNModelWalk
 from dqn_discrete.replay_buffer import ReplayBuffer, fill
 from dqn_discrete.common_utils import *
 from dqn_discrete.discrete_action_wrapper import make_env
@@ -28,7 +28,7 @@ class YABuffer(ReplayBuffer):
 
 
 def main():
-    writer = SummaryWriter('logs/concat_visib_and_full_act')
+    writer = SummaryWriter('logs/log_min_intens_loss_plus_actions')
 
     args = get_args()
     print(vars(args))
@@ -37,10 +37,12 @@ def main():
     observation_shape = env.observation_space.shape
     print('obs shape', observation_shape)
     n_actions = env.action_space.n
-    hidden_size = 100 * (n_actions + 1)
+    hidden_size = 100 * n_actions # no op is excluded
     net = DuelDQNModel(observation_shape, n_actions, hidden_size).to(args.device)
+    #net.load_state_dict(torch.load('model'))
 
-    net.load_state_dict(torch.load('model'))
+    #net = DuelDQNModelWalk([100, n_actions + 1], n_actions).to(args.device)
+    #net.load_state_dict(torch.load('model'))
 
     target_net = TargetNet(net)
     exp_replay = ReplayBuffer(args.buffer_size)
@@ -113,8 +115,8 @@ def main():
 
             agent.epsilon = linear_decay(step, args)
             
-            print("Updates: {}, num timesteps: {}, buff size: {}, epsilon: {:.4f}, last reward: {:.2f}".format(
-                step, int(step * args.rollout_steps), len(exp_replay), agent.epsilon, reword)
+            print("Updates: {}, num timesteps: {}, buff size: {}, epsilon: {:.4f}, last visib: {:.2f}".format(
+                step, int(step * args.rollout_steps), len(exp_replay), agent.epsilon, visib)
             )
 
             torch.save(net.state_dict(), 'model')

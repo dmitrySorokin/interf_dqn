@@ -4,6 +4,7 @@ import gym
 import gym_interf
 import numpy as np
 from collections import deque
+from .common_utils import rescale_imin
 
 
 class ChannelShifter(gym.Wrapper):
@@ -31,6 +32,9 @@ class DiscreteActionWrapper(gym.Wrapper):
     def reset(self):
         actions = np.random.uniform(low=-1, high=1, size=self.shape)
         return self.env.reset(actions)
+        #x = np.random.uniform(low=-0.5, high=0.5)
+        #y = np.random.uniform(low=-0.5, high=0.5)
+        #return self.env.reset([x, y, -2 * x, 2 * y])
 
     def step(self, action_id: int):
         actions = [0] * self.shape
@@ -94,11 +98,17 @@ class FrameStack(gym.Wrapper):
         return res
 
 
+class RewardChanger(gym.RewardWrapper):
+    def reward(self, reward):
+        return rescale_imin(self.env.info['imin']) - 1
+
+
 def make_env(seed=None):
     env = gym.make('interf-v1')
     env = BrightnessRandomizer(env)
     env = ChannelShifter(env)
     env = DiscreteActionWrapper(env)
     #env = FrameStack(env, 3)
+    env = RewardChanger(env)
     env.seed(seed)
     return env
