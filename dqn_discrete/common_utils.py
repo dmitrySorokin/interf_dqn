@@ -86,7 +86,7 @@ def evaluate(env, agent, hidden_size, n_games=1, greedy=False, t_max=10000):
             #imin = rescale_imin(info['imin'])
             visib = rescale_visib(info['visib'])
             action_vec = action2vec(action, agent.get_number_of_actions())
-            h = np.append(h[1 + len(action_vec):], [visib, *action_vec]).astype(h.dtype)
+            h = np.append(h[2 + len(action_vec):], [visib, env.max_steps - env.n_steps, *action_vec]).astype(h.dtype)
 
             if done:
                 h = np.zeros_like(h, dtype=h.dtype)

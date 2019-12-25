@@ -7,12 +7,19 @@ from collections import deque
 from .common_utils import rescale_visib
 
 
+class BeamRadiusRandomizer(gym.Wrapper):
+    def reset(self):
+        r = np.random.uniform(0.8, 1.2)
+        self.env.set_radius(r)
+        return self.env.reset()
+
+
 class ChannelShifter(gym.Wrapper):
     def __init__(self, env):
         super().__init__(env)
 
-    def reset(self, actions):
-        return shift(self.env.reset(actions))
+    def reset(self):
+        return shift(self.env.reset())
 
     def step(self, actions):
         n_back = np.random.randint(0, 8)
@@ -30,7 +37,7 @@ class DiscreteActionWrapper(gym.Wrapper):
         self.action_space = gym.spaces.Discrete(self.n_actions)
 
     def reset(self):
-        actions = np.random.uniform(low=-1, high=1, size=self.shape)
+        actions = np.random.uniform(low=-1.5, high=1.5, size=self.shape)
         return self.env.reset(actions)
         #x = np.random.uniform(low=-0.5, high=0.5)
         #y = np.random.uniform(low=-0.5, high=0.5)
@@ -59,13 +66,13 @@ class BrightnessRandomizer(gym.Wrapper):
         obs = np.minimum(obs, 255)
         return obs.astype(np.uint8)
 
+    def reset(self):
+        obs = self.env.reset()
+        return self.randomize(obs)
+
     def step(self, action):
         obs, rew, done, info = self.env.step(action)
         return self.randomize(obs), rew, done, info
-
-    def reset(self, actions):
-        obs = self.env.reset(actions)
-        return self.randomize(obs)
 
 
 class FrameStack(gym.Wrapper):
@@ -98,16 +105,19 @@ class FrameStack(gym.Wrapper):
         return res
 
 
-class RewardChanger(gym.RewardWrapper):
-    def reward(self, reward):
-        return rescale_visib(self.env.info['visib']) - 1
+class RewardChanger(gym.Wrapper):
+    def step(self, action):
+        state, reward, done, info = self.env.step(action)
+        #return state, info['visib'] * done - 1.0 / 200.0, done, info
+        return state, rescale_visib(info['visib']) * done, done, info
 
 
 def make_env(seed=None):
     env = gym.make('interf-v1')
+    env = DiscreteActionWrapper(env)
+    env = BeamRadiusRandomizer(env)
     env = BrightnessRandomizer(env)
     env = ChannelShifter(env)
-    env = DiscreteActionWrapper(env)
     #env = FrameStack(env, 3)
     env = RewardChanger(env)
     env.seed(seed)

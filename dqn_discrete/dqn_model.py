@@ -42,7 +42,7 @@ class DQNModel(nn.Module):
 class DuelDQNModel(nn.Module):
     """A Dueling DQN net"""
     
-    def __init__(self, input_shape, n_actions, history_size):
+    def __init__(self, input_shape, n_actions, history_step_size):
         super(DuelDQNModel, self).__init__()
 
         self.n_actions = n_actions
@@ -57,22 +57,12 @@ class DuelDQNModel(nn.Module):
         )
 
         conv_out_size = self._get_conv_out(input_shape, self.conv)
-        history_out_size = 256
-        #
-        self.history = nn.Sequential(
-            nn.Linear(history_size, 512),
-            nn.ReLU(),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Linear(512, history_out_size),
-            nn.ReLU()
-        )
 
-        #self.feature = nn.LSTM(recurrent_step_size, recurrent_step_size)
-        #self.lstm_hidden_shape = recurrent_step_size
+        self.history = nn.LSTM(history_step_size, history_step_size)
+        self.lstm_out_size = history_step_size
 
         self.fc_adv = nn.Sequential(
-            nn.Linear(conv_out_size + history_out_size, 512),
+            nn.Linear(conv_out_size + self.lstm_out_size, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
@@ -80,7 +70,7 @@ class DuelDQNModel(nn.Module):
         )
         # h_adv = self.fc_adv.register_hook(lambda grad: grad/torch.sqrt(2))
         self.fc_val = nn.Sequential(
-            nn.Linear(conv_out_size + history_out_size, 512),
+            nn.Linear(conv_out_size + self.lstm_out_size, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
@@ -94,63 +84,18 @@ class DuelDQNModel(nn.Module):
 
     def forward(self, x, histo):
         x = x.float() / 255.0
+
         conv_out = self.conv(x).view(x.shape[0], -1)
-        histo_out = self.history(histo)
 
+        histo = histo.view([histo.shape[0], self.lstm_out_size, 100]).permute([2, 0, 1])
+        self.history.flatten_parameters()
+        feature_out, hidden = self.history(histo)
+        feature_out = feature_out[-1]
 
-        #step_histo = step_histo.view([step_histo.shape[0], -1, 100]).permute([2, 0, 1])
-        #self.feature.flatten_parameters()
-        #feature_out, hidden = self.feature(step_histo)
-        #feature_out = feature_out[-1]
-
-        out = torch.cat([conv_out, histo_out], dim=1)
+        out = torch.cat([conv_out, feature_out], dim=1)
 
         val = self.fc_val(out)
         adv = self.fc_adv(out)
-
-        return val + adv - adv.mean()
-
-
-class DuelDQNModelWalk(nn.Module):
-    """A Dueling DQN net"""
-
-    def __init__(self, input_shape, n_actions):
-        super(DuelDQNModelWalk, self).__init__()
-
-        self.n_actions = n_actions
-        self.feature = nn.LSTM(input_shape[1], input_shape[1])
-        self.lstm_hidden_shape = input_shape[1]
-
-        self.fc_adv = nn.Sequential(
-            nn.Linear(self.lstm_hidden_shape, 512),
-            nn.ReLU(),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Linear(512, self.n_actions)
-        )
-        # h_adv = self.fc_adv.register_hook(lambda grad: grad/torch.sqrt(2))
-        self.fc_val = nn.Sequential(
-            nn.Linear(self.lstm_hidden_shape, 512),
-            nn.ReLU(),
-            nn.Linear(512, 512),
-            nn.ReLU(),
-            nn.Linear(512, 1)
-        )
-        # h_val = self.fc_val.register_hook(lambda grad: grad/torch.sqrt(2))
-
-    def _get_conv_out(self, shape, conv):
-        o = conv(torch.zeros(1, *shape))
-        return int(np.prod(o.shape))
-
-    def forward(self, _, step_histo):
-        step_histo = step_histo.view([step_histo.shape[0], -1, 100]).permute([2, 0, 1])
-        self.feature.flatten_parameters()
-        feature_out, hidden = self.feature(step_histo)
-
-        feature_out = feature_out[-1]
-
-        val = self.fc_val(feature_out)
-        adv = self.fc_adv(feature_out)
 
         return val + adv - adv.mean()
 
