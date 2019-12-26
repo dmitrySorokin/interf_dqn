@@ -32,7 +32,7 @@ class DiscreteActionWrapper(gym.Wrapper):
     def __init__(self, e):
         super().__init__(e)
         self.shape = self.env.action_space.shape[0]
-        self.step_fractions = [0.01, 0.05, 0.1]
+        self.step_fractions = [0.01, 0.05, 0.1, 0.5]
         self.n_actions = 8 * len(self.step_fractions) + 1
         self.action_space = gym.spaces.Discrete(self.n_actions)
 
@@ -53,6 +53,8 @@ class DiscreteActionWrapper(gym.Wrapper):
             actions[action_id // 2] = step_fraction * (
                 -1 if action_id % 2 == 0 else 1
             )
+
+        actions = np.asarray(actions) * np.asarray([1., 1., 2., 2.])
 
         return self.env.step(actions)
 
@@ -109,16 +111,28 @@ class RewardChanger(gym.Wrapper):
     def step(self, action):
         state, reward, done, info = self.env.step(action)
         #return state, info['visib'] * done - 1.0 / 200.0, done, info
-        return state, rescale_visib(info['visib']) * done, done, info
+        rescaled_visib = rescale_visib(info['visib'])
+        return state, rescaled_visib - 1.0 + rescaled_visib * done * 100, done, info
+
+
+class CameraPositionRandomizer(gym.Wrapper):
+    def reset(self):
+        x_min_rnd = np.random.uniform(0.7, 1.3)
+        self.env.set_xmin(-3.57 / 2 * x_min_rnd)
+        x_max_rnd = np.random.uniform(0.7, 1.3)
+        self.env.set_xmax(3.57 / 2 * x_max_rnd)
+        return self.env.reset()
 
 
 def make_env(seed=None):
     env = gym.make('interf-v1')
+    env.set_max_steps(100)
     env = DiscreteActionWrapper(env)
     env = BeamRadiusRandomizer(env)
     env = BrightnessRandomizer(env)
     env = ChannelShifter(env)
     #env = FrameStack(env, 3)
     env = RewardChanger(env)
+    env = CameraPositionRandomizer(env)
     env.seed(seed)
     return env

@@ -45,6 +45,8 @@ class DuelDQNModel(nn.Module):
     def __init__(self, input_shape, n_actions, history_step_size):
         super(DuelDQNModel, self).__init__()
 
+        print('history step size = ', history_step_size)
+
         self.n_actions = n_actions
 
         self.conv = nn.Sequential(
@@ -57,12 +59,13 @@ class DuelDQNModel(nn.Module):
         )
 
         conv_out_size = self._get_conv_out(input_shape, self.conv)
+        self.history_step_size = history_step_size
 
-        self.history = nn.LSTM(history_step_size, history_step_size)
-        self.lstm_out_size = history_step_size
+        #self.history = nn.LSTM(history_step_size, history_step_size)
+        #self.lstm_out_size = history_step_size
 
         self.fc_adv = nn.Sequential(
-            nn.Linear(conv_out_size + self.lstm_out_size, 512),
+            nn.Linear(conv_out_size + 2, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
@@ -70,7 +73,7 @@ class DuelDQNModel(nn.Module):
         )
         # h_adv = self.fc_adv.register_hook(lambda grad: grad/torch.sqrt(2))
         self.fc_val = nn.Sequential(
-            nn.Linear(conv_out_size + self.lstm_out_size, 512),
+            nn.Linear(conv_out_size + 2, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
@@ -87,12 +90,11 @@ class DuelDQNModel(nn.Module):
 
         conv_out = self.conv(x).view(x.shape[0], -1)
 
-        histo = histo.view([histo.shape[0], self.lstm_out_size, 100]).permute([2, 0, 1])
-        self.history.flatten_parameters()
-        feature_out, hidden = self.history(histo)
-        feature_out = feature_out[-1]
+        histo = histo.view([histo.shape[0], -1, self.history_step_size])
+        last_histo_step = histo[:, -1, -2:]
+        last_histo_visib_and_time = last_histo_step[:, -2:]
 
-        out = torch.cat([conv_out, feature_out], dim=1)
+        out = torch.cat([conv_out, last_histo_visib_and_time], dim=1)
 
         val = self.fc_val(out)
         adv = self.fc_adv(out)

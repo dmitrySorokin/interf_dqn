@@ -94,9 +94,9 @@ def fill(buffer, agent, env, s_begin, h_begin, n_steps=1):
         next_s, r, done, info = env.step(action)
 
         #imin = rescale_imin(info['imin'])
-        visib = rescale_visib(info['visib'])
+        rescaled_visib = rescale_visib(info['visib'])
         action_vec = action2vec(action, agent.get_number_of_actions())
-        next_h = np.append(h[2 + len(action_vec):], [visib, env.max_steps - env.n_steps, *action_vec]).astype(h.dtype)
+        next_h = np.append(h[len(action_vec) + 2:], [*action_vec, rescaled_visib, env.max_steps - env.n_steps]).astype(h.dtype)
 
         buffer.add(s, h, action, r, next_s, next_h, done)
         if done:

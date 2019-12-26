@@ -15,7 +15,7 @@ def rescale_imin(imin):
 
 
 def rescale_visib(visib):
-    return -np.log(1.0 - visib + 1e-3) / 10.0
+    return -np.log(1.0 - visib + 1e-3) + visib
 
 
 def shift(state):
@@ -84,9 +84,9 @@ def evaluate(env, agent, hidden_size, n_games=1, greedy=False, t_max=10000):
             reward += r
 
             #imin = rescale_imin(info['imin'])
-            visib = rescale_visib(info['visib'])
+            rescaled_visib = rescale_visib(info['visib'])
             action_vec = action2vec(action, agent.get_number_of_actions())
-            h = np.append(h[2 + len(action_vec):], [visib, env.max_steps - env.n_steps, *action_vec]).astype(h.dtype)
+            h = np.append(h[2 + len(action_vec):], [*action_vec, rescaled_visib, env.max_steps - env.n_steps]).astype(h.dtype)
 
             if done:
                 h = np.zeros_like(h, dtype=h.dtype)

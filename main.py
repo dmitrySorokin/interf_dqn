@@ -28,7 +28,7 @@ class YABuffer(ReplayBuffer):
 
 
 def main():
-    writer = SummaryWriter('logs/sparce_rewards')
+    writer = SummaryWriter('logs/final_version')
 
     args = get_args()
     print(vars(args))
