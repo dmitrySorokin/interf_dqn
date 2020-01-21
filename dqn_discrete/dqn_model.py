@@ -65,7 +65,7 @@ class DuelDQNModel(nn.Module):
         #self.lstm_out_size = history_step_size
 
         self.fc_adv = nn.Sequential(
-            nn.Linear(conv_out_size + 2, 512),
+            nn.Linear(conv_out_size, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
@@ -73,7 +73,7 @@ class DuelDQNModel(nn.Module):
         )
         # h_adv = self.fc_adv.register_hook(lambda grad: grad/torch.sqrt(2))
         self.fc_val = nn.Sequential(
-            nn.Linear(conv_out_size + 2, 512),
+            nn.Linear(conv_out_size, 512),
             nn.ReLU(),
             nn.Linear(512, 512),
             nn.ReLU(),
@@ -90,14 +90,14 @@ class DuelDQNModel(nn.Module):
 
         conv_out = self.conv(x).view(x.shape[0], -1)
 
-        histo = histo.view([histo.shape[0], -1, self.history_step_size])
-        last_histo_step = histo[:, -1, -2:]
-        last_histo_visib_and_time = last_histo_step[:, -2:]
+        #histo = histo.view([histo.shape[0], -1, self.history_step_size])
+        #last_histo_step = histo[:, -1, -2:]
+        #last_histo_visib_and_time = last_histo_step[:, -2:]
 
-        out = torch.cat([conv_out, last_histo_visib_and_time], dim=1)
+        #out = torch.cat([conv_out, last_histo_visib_and_time], dim=1)
 
-        val = self.fc_val(out)
-        adv = self.fc_adv(out)
+        val = self.fc_val(conv_out)
+        adv = self.fc_adv(conv_out)
 
         return val + adv - adv.mean()
 

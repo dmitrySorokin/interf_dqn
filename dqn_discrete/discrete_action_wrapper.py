@@ -7,9 +7,18 @@ from collections import deque
 from .common_utils import rescale_visib
 
 
+class BeamEllipticityRandomizer(gym.Wrapper):
+    def reset(self):
+        rotation = np.random.uniform(0, 2 * np.pi)
+        ellip = np.random.uniform(0.7, 1.0)
+        self.env.set_beam_rotation(rotation)
+        self.env.set_beam_ellipticity(ellip)
+        return self.env.reset()
+
+
 class BeamRadiusRandomizer(gym.Wrapper):
     def reset(self):
-        r = np.random.uniform(0.8, 1.2)
+        r = 0.7 * np.random.uniform(0.8, 1.2)
         self.env.set_radius(r)
         return self.env.reset()
 
@@ -32,7 +41,7 @@ class DiscreteActionWrapper(gym.Wrapper):
     def __init__(self, e):
         super().__init__(e)
         self.shape = self.env.action_space.shape[0]
-        self.step_fractions = [0.01, 0.05, 0.1, 0.5]
+        self.step_fractions = [0.01, 0.05, 0.1]
         self.n_actions = 8 * len(self.step_fractions) + 1
         self.action_space = gym.spaces.Discrete(self.n_actions)
 
@@ -54,7 +63,7 @@ class DiscreteActionWrapper(gym.Wrapper):
                 -1 if action_id % 2 == 0 else 1
             )
 
-        actions = np.asarray(actions) * np.asarray([1., 1., 2., 2.])
+        actions = np.asarray(actions) * np.asarray([1.0, 1.0, 1.0, 1.0])
 
         return self.env.step(actions)
 
@@ -112,7 +121,7 @@ class RewardChanger(gym.Wrapper):
         state, reward, done, info = self.env.step(action)
         #return state, info['visib'] * done - 1.0 / 200.0, done, info
         rescaled_visib = rescale_visib(info['visib'])
-        return state, rescaled_visib - 1.0 + rescaled_visib * done * 100, done, info
+        return state, rescaled_visib - 1.0, done, info
 
 
 class CameraPositionRandomizer(gym.Wrapper):
@@ -124,15 +133,24 @@ class CameraPositionRandomizer(gym.Wrapper):
         return self.env.reset()
 
 
+class RealisticBeamsRandomizer(gym.Wrapper):
+    def reset(self):
+        use_masks = np.random.random() < 0.5
+        self.env.use_beam_masks(use_masks)
+        return self.env.reset()
+
+
 def make_env(seed=None):
     env = gym.make('interf-v1')
     env.set_max_steps(100)
     env = DiscreteActionWrapper(env)
     env = BeamRadiusRandomizer(env)
+    env = BeamEllipticityRandomizer(env)
     env = BrightnessRandomizer(env)
     env = ChannelShifter(env)
     #env = FrameStack(env, 3)
     env = RewardChanger(env)
     env = CameraPositionRandomizer(env)
+    #env = RealisticBeamsRandomizer(env)
     env.seed(seed)
     return env

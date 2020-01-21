@@ -28,7 +28,7 @@ class YABuffer(ReplayBuffer):
 
 
 def main():
-    writer = SummaryWriter('logs/final_version')
+    writer = SummaryWriter('logs/large_beam_final')
 
     args = get_args()
     print(vars(args))
@@ -40,7 +40,7 @@ def main():
     hidden_step_size = n_actions + 1 # no op is excluded, plus step number
     hidden_size = 100 * hidden_step_size
     net = DuelDQNModel(observation_shape, n_actions, hidden_step_size).to(args.device)
-    #net.load_state_dict(torch.load('model'))
+    #net.load_state_dict(torch.load('/home/dmitry/dev/interf_game/eval_models/dqn_exp_log_loss_diff_actions'))
 
     #net = DuelDQNModelWalk([100, n_actions + 1], n_actions).to(args.device)
     #net.load_state_dict(torch.load('model'))
