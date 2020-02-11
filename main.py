@@ -28,7 +28,7 @@ class YABuffer(ReplayBuffer):
 
 
 def main():
-    writer = SummaryWriter('logs/large_beam_final')
+    writer = SummaryWriter('logs/final_model')
 
     args = get_args()
     print(vars(args))
