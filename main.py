@@ -28,7 +28,7 @@ class YABuffer(ReplayBuffer):
 
 
 def main():
-    writer = SummaryWriter('logs/final_model')
+    writer = SummaryWriter('logs/fully_randomized_model')
 
     args = get_args()
     print(vars(args))

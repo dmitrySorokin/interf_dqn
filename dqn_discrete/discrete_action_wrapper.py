@@ -7,6 +7,9 @@ from collections import deque
 from .common_utils import rescale_visib
 
 
+RADIUS = 0.95
+
+
 class BeamEllipticityRandomizer(gym.Wrapper):
     def reset(self):
         rotation = np.random.uniform(0, 2 * np.pi)
@@ -18,7 +21,7 @@ class BeamEllipticityRandomizer(gym.Wrapper):
 
 class BeamRadiusRandomizer(gym.Wrapper):
     def reset(self):
-        r = 0.7 * np.random.uniform(0.8, 1.2)
+        r = RADIUS * np.random.uniform(0.8, 1.2)
         self.env.set_radius(r)
         return self.env.reset()
 
@@ -142,6 +145,7 @@ class RealisticBeamsRandomizer(gym.Wrapper):
 
 def make_env(seed=None):
     env = gym.make('interf-v1')
+    env.set_radius(RADIUS)
     env.set_max_steps(100)
     env = DiscreteActionWrapper(env)
     env = BeamRadiusRandomizer(env)
