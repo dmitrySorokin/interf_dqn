@@ -9,6 +9,8 @@ from tqdm import trange
 from tensorboardX import SummaryWriter
 import os
 
+from interf_dqn.dqn_discrete.common_utils import duel_dqn_conv_grads_div, calc_loss_dqn
+
 
 class YABuffer(ReplayBuffer):
     def __init__(self, data_dir='exp_data'):

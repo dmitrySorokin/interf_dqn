@@ -15,7 +15,7 @@ def get_args(flag=None):
     group.add_argument('--decay-steps',type=int,default=int(1e6),
                         help='Number of learning steps for epsilon decay')
     group.add_argument('--rollout-steps',type=int,default=4,
-                        help='Number of learning steps for epsilon decay')                 
+                        help='Number of learning steps for epsilon decay')
     group.add_argument('--init-eps',type=float,default=1,
                         help='Initial epsilon value')
     group.add_argument('--final-eps',type=float,default=0.1,
@@ -67,7 +67,7 @@ def get_args(flag=None):
     group.add_argument('--scale',action='store_true',default=False,
                         help='Scales frames')
 
-    if flag=='nb':
+    if flag=='Ыnb':
         args = parser.parse_args(args=[])
     else:
         args = parser.parse_args()
@@ -76,5 +76,5 @@ def get_args(flag=None):
             args.device = torch.device('cuda', vars(args)['cuda'])
     else:
         args.device = torch.device('cpu')
-    
+
     return args
