@@ -44,12 +44,13 @@ class DiscreteActionWrapper(gym.Wrapper):
     def __init__(self, e):
         super().__init__(e)
         self.shape = self.env.action_space.shape[0]
+        self.ndir = self.shape * 2
         self.step_fractions = [0.01, 0.05, 0.1]
-        self.n_actions = 8 * len(self.step_fractions) + 1
+        self.n_actions = self.ndir * len(self.step_fractions) + 1
         self.action_space = gym.spaces.Discrete(self.n_actions)
 
     def reset(self):
-        actions = np.random.uniform(low=-1.5, high=1.5, size=self.shape)
+        actions = np.random.uniform(low=-1.0, high=1.0, size=self.shape)
         return self.env.reset(actions)
         #x = np.random.uniform(low=-0.5, high=0.5)
         #y = np.random.uniform(low=-0.5, high=0.5)
@@ -60,13 +61,14 @@ class DiscreteActionWrapper(gym.Wrapper):
 
         if action_id < self.n_actions - 1:
 
-            step_fraction = self.step_fractions[action_id // 8]
-            action_id = action_id % 8
+            step_fraction = self.step_fractions[action_id // self.ndir]
+            action_id = action_id % self.ndir
             actions[action_id // 2] = step_fraction * (
                 -1 if action_id % 2 == 0 else 1
             )
 
-        actions = np.asarray(actions) * np.asarray([1.0, 1.0, 1.0, 1.0])
+        # change me to add different scales to actions
+        actions = np.asarray(actions) * np.ones(self.shape)
 
         return self.env.step(actions)
 
