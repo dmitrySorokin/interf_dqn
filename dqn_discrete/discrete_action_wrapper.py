@@ -146,7 +146,7 @@ class RealisticBeamsRandomizer(gym.Wrapper):
 
 
 def make_env(seed=None):
-    env = gym.make('interf-v1')
+    env = gym.make('interf-v2')
     env.set_radius(RADIUS)
     env.set_max_steps(100)
     env = DiscreteActionWrapper(env)
