@@ -28,7 +28,7 @@ class YABuffer(ReplayBuffer):
 
 
 def main():
-    writer = SummaryWriter('logs/fully_randomized_model')
+    writer = SummaryWriter('logs/lenses_energy_75mm_radius')
 
     args = get_args()
     print(vars(args))
@@ -122,6 +122,8 @@ def main():
 
             torch.save(net.state_dict(), 'model')
 
+        if step % 100000 == 0:
+            torch.save(net.state_dict(), 'model_{}'.format(step))
 
 if __name__ == '__main__':
     main()

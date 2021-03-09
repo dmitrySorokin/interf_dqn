@@ -7,7 +7,7 @@ from collections import deque
 from .common_utils import rescale_visib
 
 
-RADIUS = 0.957
+RADIUS = 0.714
 
 
 class BeamEllipticityRandomizer(gym.Wrapper):
