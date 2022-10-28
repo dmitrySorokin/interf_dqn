@@ -51,7 +51,7 @@ class DiscreteActionWrapper(gym.Wrapper):
 
     def reset(self):
         actions = np.random.uniform(low=-1.0, high=1.0, size=self.shape)
-        return self.env.reset(actions)
+        return self.env.reset(actions=actions)
         #x = np.random.uniform(low=-0.5, high=0.5)
         #y = np.random.uniform(low=-0.5, high=0.5)
         #return self.env.reset([x, y, -2 * x, 2 * y])
